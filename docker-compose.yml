@@ -1,0 +1,12 @@
+version: "3.1"
+services:
+  web:
+    image: erwans0909/filewebkuasai:v1
+  mysql:
+    image: mysql:5.7
+  proxy:
+    image: nginx:1.13
+  pma:
+    image: phpmyadmin:latest
+    depends_on:
+      - mysql

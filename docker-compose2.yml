@@ -1,0 +1,105 @@
+version: "3.1"
+services:
+  proxy:
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      proxy_net:
+      ext_net:
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: curl -f http://localhost/ || exit 0
+      interval: 5s
+      timeout: 10s
+      retries: 3
+
+  web:
+    networks:
+      proxy_net:
+      int_net:
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2    
+        delay: 10s
+      restart_policy:    
+        condition: on-failure
+    healthcheck:
+      test: curl -f http://localhost/ || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+
+  mysql:
+    secrets:
+      - my_root
+      - my_database
+      - my_user
+      - my_password   
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/my_root
+      MYSQL_DATABASE_FILE : /run/secrets/my_database
+      MYSQL_USER_FILE : /run/secrets/my_user
+      MYSQL_PASSWORD_FILE : /run/secrets/my_password
+    volumes:
+       - mysql-db:/var/lib/mysql
+    networks:
+      proxy_net:
+      int_net:
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: "/etc/init.d/mysql status"
+      interval: 1s
+      retries: 120
+  pma:
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOSTS : mysql
+    networks:
+      int_net:
+      proxy_net:
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: curl -f http://localhost:80/ || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql-db:
+
+networks:
+  proxy_net:
+  int_net:
+  ext_net:
+
+secrets:
+ my_root:
+  file: ./root.txt
+ my_database:
+  file: ./database.txt
+ my_user:
+  file: ./user.txt
+ my_password:
+  file: ./password.txt
